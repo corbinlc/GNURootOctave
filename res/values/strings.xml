@@ -27,7 +27,6 @@
         <item>Control Package</item>
         <item>Financial Package</item>
         <item>IO Package</item>
-        <item>Mapping Package</item>
         <item>Missing Functions Package</item>
         <item>ODE Package</item>
         <item>Optim Package</item>       
@@ -41,7 +40,6 @@
         <item>octave-control</item>
         <item>octave-financial</item>
         <item>octave-io</item>
-        <item>octave-mapping</item>
         <item>octave-missing-functions</item>
         <item>octave-odepkg</item>
         <item>octave-optim</item>       
