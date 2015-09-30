@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) 2014 Corbin Leigh Champion -->
+
+<!-- Permission is hereby granted, free of charge, to any person obtaining a copy -->
+<!-- of this software and associated documentation files (the "Software"), to deal -->
+<!-- in the Software without restriction, including without limitation the rights -->
+<!-- to use, copy, modify, merge, publish, distribute, sublicense, and/or sell -->
+<!-- copies of the Software, and to permit persons to whom the Software is -->
+<!-- furnished to do so, subject to the following conditions: -->
+
+<!-- The above copyright notice and this permission notice shall be included in -->
+<!-- all copies or substantial portions of the Software. -->
+
+<!-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR -->
+<!-- IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, -->
+<!-- FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE -->
+<!-- AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER -->
+<!-- LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, -->
+<!-- OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN -->
+<!-- THE SOFTWARE. -->
+<resources>
+    <string name="app_name">GNURoot Octave</string>
+    <string name="install_button_text">Install/Update</string>
+    <string name="install_textview_text">Will Install/Update Octave when the button is pressed.  You may also select additional packages to Install/Update at the same time.</string>
+    <string-array name="package_disp_array">
+        <item>gnuplot (required for plotting)</item>
+        <item>Control Package</item>
+        <item>Financial Package</item>
+        <item>IO Package</item>
+        <item>Missing Functions Package</item>
+        <item>ODE Package</item>
+        <item>Optim Package</item>       
+        <item>Signal Package</item>
+        <item>Specfun Package</item>
+        <item>Statistics Package</item>
+        <item>Symbolic Package</item>
+        <item>Image Package</item>
+    </string-array>
+    <string-array name="package_name_array">
+        <item>gnuplot-nox</item>
+        <item>octave-control</item>
+        <item>octave-financial</item>
+        <item>octave-io</item>
+        <item>octave-missing-functions</item>
+        <item>octave-odepkg</item>
+        <item>octave-optim</item>       
+        <item>octave-signal</item>
+        <item>octave-specfun</item>
+        <item>octave-statistics</item>
+        <item>octave-symbolic</item>
+        <item>octave-image</item>
+    </string-array>
+    <string name="launch_button_text">Run Octave</string>
+    <string name="launch_textview_text">Pressing the button below will run Octave in a new terminal via GNURoot Debian.</string>
+    <string name="launch_x_button_text">Run X Octave</string>
+    <string name="launch_x_textview_text">Pressing the button below will run Octave in a new Xterm via GNURoot Debian.</string>
+</resources>
