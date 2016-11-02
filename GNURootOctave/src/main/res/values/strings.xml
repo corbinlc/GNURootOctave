@@ -20,6 +20,9 @@
 <!-- THE SOFTWARE. -->
 <resources>
     <string name="app_name">GNURoot Octave</string>
+    <string name="launch_preference">Would you like to launch octave in a graphical or non-graphical terminal?</string>
+    <string name="term_preference">Non-graphical</string>
+    <string name="xterm_preference">Graphical</string>
     <string name="install_button_text">Install/Update</string>
     <string name="install_textview_text">Will Install/Update Octave when the button is pressed.  You may also select additional packages to Install/Update at the same time.</string>
     <string-array name="package_disp_array">
