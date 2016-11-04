@@ -25,7 +25,6 @@ THE SOFTWARE.
 package com.gnuroot.octave;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -34,7 +33,6 @@ import com.gnuroot.octave.R;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
@@ -55,55 +53,76 @@ public class OctaveMain extends Activity {
 		super.onCreate(savedInstanceState);
 
 		final Intent intent;
+		String launchType = "launchTerm";
 		SharedPreferences prefs = getSharedPreferences("MAIN", MODE_PRIVATE);
 		SharedPreferences.Editor editor = prefs.edit();
 		PackageInfo packageInfo = null;
-		int version = 0;
 
 		try { packageInfo = getPackageManager().getPackageInfo("com.gnuroot.debian", 0); }
 		catch (NameNotFoundException e) { showUpdateError(); }
 
-		if(packageInfo == null || packageInfo.versionCode < 40)
+		if(packageInfo == null || packageInfo.versionCode < 34)
 			showUpdateError();
 
+		/** To get the reactive app selection interface to appear, send an intent
+		 *	to both OctaveTermSelect and OctaveXTermSelect. They send an intent
+		 *	back to this class indicating the selection that was made.
+		 */
 		else {
-			if (!prefs.getBoolean("firstTime", false)) {
-				copyAssets("com.gnuroot.octave");
-				intent = getInstallIntent();
-				editor.putBoolean("firstTime", true);
-				editor.commit();
-			} else
-				intent = getLaunchIntent();
+			if(getIntent().getAction() == Intent.ACTION_MAIN) {
+				Intent getLaunch = new Intent("com.gnuroot.octave.LAUNCH_SELECTION");
+				getLaunch.addCategory(Intent.CATEGORY_DEFAULT);
+				startActivity(getLaunch);
+				finish();
+			}
 
-			//TODO Would like to replace this Alert Dialog with the app selection interface
-			AlertDialog.Builder builder = new AlertDialog.Builder(OctaveMain.this);
-			builder.setMessage(R.string.launch_preference);
-			builder.setPositiveButton(R.string.term_preference, new DialogInterface.OnClickListener() {
-				@Override
-				public void onClick(DialogInterface dialog, int which) {
-					intent.putExtra("launchType", "launchTerm");
-					startActivity(intent);
-					dialog.cancel();
-					finish();
-				}
-			});
-			builder.setNegativeButton(R.string.xterm_preference, new DialogInterface.OnClickListener() {
-				@Override
-				public void onClick(DialogInterface dialog, int which) {
-					intent.putExtra("launchType", "launchXTerm");
-					startActivity(intent);
-					dialog.cancel();
-					finish();
-				}
-			});
-			builder.create().show();
+			else if(getIntent().getAction() == "com.gnuroot.octave.LAUNCH_CHOICE") {
+				launchType = getIntent().getStringExtra("launchType");
+				if (!prefs.getBoolean("firstTime", false)) {
+					copyAssets("com.gnuroot.octave");
+					intent = getInstallIntent();
+					editor.putBoolean("firstTime", true);
+					editor.commit();
+				} else
+					intent = getLaunchIntent();
+
+				intent.putExtra("launchType", launchType);
+				startActivity(intent);
+				finish();
+			}
+
+			// On the odd chance that Octave catches an intent it isn't meant to, display an error.
+			else
+				showIntentError();
 		}
 	}
 
+	/**
+	 * Displays an alert dialog if GNURoot Debian isn't updated to at least the version that included the
+	 * new ecosystem changes. Sends the user to the market page for it if not.
+	 */
 	private void showUpdateError() {
 		AlertDialog.Builder builder = new AlertDialog.Builder(this);
-		builder.setMessage("Octave is attempting to launch GNURoot Debian. It is either missing or out of date. Please update it and try again.");
-		builder.setPositiveButton("Got it!", new DialogInterface.OnClickListener() {
+		builder.setCancelable(false);
+		builder.setMessage(R.string.update_error_message);
+		builder.setPositiveButton(R.string.button_affirmative, new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				dialog.dismiss();
+				Intent intent = new Intent(Intent.ACTION_VIEW);
+				intent.setData(Uri.parse("market://details?id=com.gnuroot.debian"));
+				startActivity(intent);
+				finish();
+			}
+		});
+		builder.create().show();
+	}
+
+	private void showIntentError() {
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setCancelable(false);
+		builder.setMessage(R.string.intent_error_message);
+		builder.setPositiveButton(R.string.button_affirmative, new DialogInterface.OnClickListener() {
 			@Override
 			public void onClick(DialogInterface dialog, int which) {
 				dialog.dismiss();
@@ -113,6 +132,18 @@ public class OctaveMain extends Activity {
 		builder.create().show();
 	}
 
+	/**
+	 * GNURoot Debian expects the following extras from install intents:
+	 * 	1. launchType: This can be either launchTerm or launchXTerm. The command that is to be run after installation
+	 * 		dictates this selection.
+	 *	2. statusFile: This should be a name unique to the extension. It will have either _passed or _failed appended
+	 *		to it and put in the /support directory of the rootfs. It is used to check status of untarring the shared
+	 *		file you send to it.
+	 *	3. command: This is the command that will be executed in proot after installation. Often, this will be a
+	 *		script stored in your custom tar file to install additional packages if needed or to execute the extension.
+	 *	4. customTar: This is the custom tar file you've created for your extension.
+	 * @return
+	 */
 	private Intent getInstallIntent() {
 		Intent installIntent = new Intent("com.gnuroot.debian.LAUNCH");
 		installIntent.setComponent(new ComponentName("com.gnuroot.debian", "com.gnuroot.debian.GNURootMain"));
@@ -124,6 +155,12 @@ public class OctaveMain extends Activity {
 		return installIntent;
 	}
 
+	/**
+	 * GNURoot Debian expects the following extras from launch intents:
+	 * 	1. launchType: Either launchTerm or launchXTerm depending on where you want your command to be run.
+	 * 	2. command: The command to run. Usually what launches your extension.
+	 * @return
+	 */
 	private Intent getLaunchIntent() {
 		Intent launchIntent = new Intent("com.gnuroot.debian.LAUNCH");
 		launchIntent.setComponent(new ComponentName("com.gnuroot.debian", "com.gnuroot.debian.GNURootMain"));
@@ -132,11 +169,19 @@ public class OctaveMain extends Activity {
 		return launchIntent;
 	}
 
+	/**
+	 * Returns a Uri for the custom tar placed in the project's assets directory.
+	 * @return
+	 */
 	private Uri getTarUri() {
 		File fileHandle = new File(getFilesDir() + "/octave_custom.tar.gz");
 		return FileProvider.getUriForFile(this, "com.gnuroot.octave.fileprovider", fileHandle);
 	}
 
+	/**
+	 * Renames assets from .mp3 to .tar.gz.
+	 * @param packageName
+	 */
 	private void copyAssets(String packageName) {
 		Context friendContext = null;
 		try {
