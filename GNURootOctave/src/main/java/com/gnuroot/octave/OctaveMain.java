@@ -25,119 +25,167 @@ THE SOFTWARE.
 package com.gnuroot.octave;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
 
-import com.gnuroot.library.GNURootCoreActivity;
 import com.gnuroot.octave.R;
-import android.support.v7.app.ActionBar;
-import android.support.v7.app.ActionBar.Tab;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ComponentName;
+import android.content.DialogInterface;
+import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.net.Uri;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.AssetManager;
 import android.os.Bundle;
-import android.support.v4.app.FragmentTransaction;
 import android.support.v4.content.FileProvider;
-import android.support.v4.view.ViewPager;
 import android.util.Log;
-import android.util.SparseBooleanArray;
-import android.widget.Toast;
 
-public class OctaveMain extends GNURootCoreActivity {
-
-	private ViewPager viewPager;
-	private OctaveTabsPagerAdapter mAdapter; 
-	private ActionBar actionBar;
-	// Tab titles
-	private String[] tabs = { "Install/Update", "Launch" };
-	private boolean installingPackages = false;
+public class OctaveMain extends Activity {
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		setContentView(R.layout.activity_main);
 
-		// Initilization
-		viewPager = (ViewPager) findViewById(R.id.pager);
-		actionBar = getSupportActionBar();
-		mAdapter = new OctaveTabsPagerAdapter(getSupportFragmentManager());
+		final Intent intent;
+		String launchType = "launchTerm";
+		SharedPreferences prefs = getSharedPreferences("MAIN", MODE_PRIVATE);
+		SharedPreferences.Editor editor = prefs.edit();
+		PackageInfo packageInfo = null;
 
-		viewPager.setAdapter(mAdapter);
-		actionBar.setHomeButtonEnabled(false);
-		actionBar.setNavigationMode(ActionBar.NAVIGATION_MODE_TABS);		
+		try { packageInfo = getPackageManager().getPackageInfo("com.gnuroot.debian", 0); }
+		catch (NameNotFoundException e) { showUpdateError(); }
 
-		// Adding Tabs
-		for (String tab_name : tabs) {
-			actionBar.addTab(actionBar.newTab().setText(tab_name)
-					.setTabListener(this));
+		if(packageInfo == null || packageInfo.versionCode < 34)
+			showUpdateError();
+
+		/** To get the reactive app selection interface to appear, send an intent
+		 *	to both OctaveTermSelect and OctaveXTermSelect. They send an intent
+		 *	back to this class indicating the selection that was made.
+		 */
+		else {
+			if(getIntent().getAction() == Intent.ACTION_MAIN) {
+				Intent getLaunch = new Intent("com.gnuroot.octave.LAUNCH_SELECTION");
+				getLaunch.addCategory(Intent.CATEGORY_DEFAULT);
+				startActivity(getLaunch);
+				finish();
+			}
+
+			else if(getIntent().getAction() == "com.gnuroot.octave.LAUNCH_CHOICE") {
+				launchType = getIntent().getStringExtra("launchType");
+				if (!prefs.getBoolean("firstTime", false)) {
+					copyAssets("com.gnuroot.octave");
+					intent = getInstallIntent();
+					editor.putBoolean("firstTime", true);
+					editor.commit();
+				} else
+					intent = getLaunchIntent();
+
+				intent.putExtra("launchType", launchType);
+				startActivity(intent);
+				finish();
+			}
+
+			// On the odd chance that Octave catches an intent it isn't meant to, display an error.
+			else
+				showIntentError();
 		}
+	}
 
-		/**
-		 * on swiping the viewpager make respective tab selected
-		 * */
-		viewPager.setOnPageChangeListener(new ViewPager.OnPageChangeListener() {
+	/**
+	 * Displays an alert dialog if GNURoot Debian isn't updated to at least the version that included the
+	 * new ecosystem changes. Sends the user to the market page for it if not.
+	 */
+	private void showUpdateError() {
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setCancelable(false);
+		builder.setMessage(R.string.update_error_message);
+		builder.setPositiveButton(R.string.button_affirmative, new DialogInterface.OnClickListener() {
 			@Override
-			public void onPageSelected(int position) {
-				// on changing the page
-				// make respected tab selected
-				actionBar.setSelectedNavigationItem(position);
-			}
-
-			@Override
-			public void onPageScrolled(int arg0, float arg1, int arg2) {
-			}
-
-			@Override
-			public void onPageScrollStateChanged(int arg0) {
+			public void onClick(DialogInterface dialog, int which) {
+				dialog.dismiss();
+				Intent intent = new Intent(Intent.ACTION_VIEW);
+				intent.setData(Uri.parse("market://details?id=com.gnuroot.debian"));
+				startActivity(intent);
+				finish();
 			}
 		});
-
-        onNewIntent(getIntent());
+		builder.create().show();
 	}
 
-    @Override
-    protected void onNewIntent(Intent intent) {
-        String action = intent.getAction();
-        if (action.equals("com.gnuroot.debian.NEW_WINDOW"))
-            launchTerm();
-        else if (action.equals("com.gnuroot.debian.NEW_XWINDOW"))
-            launchXTerm();
-    }
-
-	@Override
-	public void onTabReselected(Tab tab, FragmentTransaction ft) {
+	private void showIntentError() {
+		AlertDialog.Builder builder = new AlertDialog.Builder(this);
+		builder.setCancelable(false);
+		builder.setMessage(R.string.intent_error_message);
+		builder.setPositiveButton(R.string.button_affirmative, new DialogInterface.OnClickListener() {
+			@Override
+			public void onClick(DialogInterface dialog, int which) {
+				dialog.dismiss();
+				finish();
+			}
+		});
+		builder.create().show();
 	}
 
-	@Override
-	public void onTabSelected(Tab tab, FragmentTransaction ft) {
-		// on tab selected
-		// show respected fragment view
-		viewPager.setCurrentItem(tab.getPosition());
+	/**
+	 * GNURoot Debian expects the following extras from install intents:
+	 * 	1. launchType: This can be either launchTerm or launchXTerm. The command that is to be run after installation
+	 * 		dictates this selection.
+	 *	2. statusFile: This should be a name unique to the extension. It will have either _passed or _failed appended
+	 *		to it and put in the /support directory of the rootfs. It is used to check status of untarring the shared
+	 *		file you send to it.
+	 *	3. command: This is the command that will be executed in proot after installation. Often, this will be a
+	 *		script stored in your custom tar file to install additional packages if needed or to execute the extension.
+	 *	4. customTar: This is the custom tar file you've created for your extension.
+	 * @return
+	 */
+	private Intent getInstallIntent() {
+		Intent installIntent = new Intent("com.gnuroot.debian.LAUNCH");
+		installIntent.setComponent(new ComponentName("com.gnuroot.debian", "com.gnuroot.debian.GNURootMain"));
+		installIntent.addCategory(Intent.CATEGORY_DEFAULT);
+		installIntent.putExtra("statusFile", "octave_custom");
+		installIntent.putExtra("command", "/support/octave_install_packages.sh");
+		installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+		installIntent.setData(getTarUri());
+		return installIntent;
 	}
 
-	@Override
-	public void onTabUnselected(Tab tab, FragmentTransaction ft) {
+	/**
+	 * GNURoot Debian expects the following extras from launch intents:
+	 * 	1. launchType: Either launchTerm or launchXTerm depending on where you want your command to be run.
+	 * 	2. command: The command to run. Usually what launches your extension.
+	 * @return
+	 */
+	private Intent getLaunchIntent() {
+		Intent launchIntent = new Intent("com.gnuroot.debian.LAUNCH");
+		launchIntent.setComponent(new ComponentName("com.gnuroot.debian", "com.gnuroot.debian.GNURootMain"));
+		launchIntent.addCategory(Intent.CATEGORY_DEFAULT);
+		launchIntent.putExtra("command", "/usr/bin/octave");
+		return launchIntent;
 	}
 
-	public void installOctave(ArrayList<String> packageNameArrayList) {
-		//check whether GNURoot is setup - TODO keep track of what has been succeeded in the past
-		//install packages
-		installingPackages = true;
-		ArrayList<String> prerequisitesArrayList = new ArrayList<String>();
-    	prerequisitesArrayList.add("gnuroot_rootfs");
-		installPackages(packageNameArrayList, "octave_packages", prerequisitesArrayList);
-		//install custom packages on return
-	}	
+	/**
+	 * Returns a Uri for the custom tar placed in the project's assets directory.
+	 * @return
+	 */
+	private Uri getTarUri() {
+		File fileHandle = new File(getFilesDir() + "/octave_custom.tar.gz");
+		return FileProvider.getUriForFile(this, "com.gnuroot.octave.fileprovider", fileHandle);
+	}
 
-
+	/**
+	 * Renames assets from .mp3 to .tar.gz.
+	 * @param packageName
+	 */
 	private void copyAssets(String packageName) {
 		Context friendContext = null;
 		try {
-			friendContext = this.createPackageContext(packageName,Context.CONTEXT_IGNORE_SECURITY);
+			friendContext = this.createPackageContext(packageName, Context.CONTEXT_IGNORE_SECURITY);
 		} catch (NameNotFoundException e1) {
 			return;
 		}
@@ -148,107 +196,30 @@ public class OctaveMain extends GNURootCoreActivity {
 		} catch (IOException e) {
 			Log.e("tag", "Failed to get asset file list.", e);
 		}
-		for(String filename : files) {
+		for (String filename : files) {
 			InputStream in = null;
 			OutputStream out = null;
 			try {
 				in = assetManager.open(filename);
 				filename = filename.replace(".mp3", ".tar.gz");
-				out = openFileOutput(filename,MODE_PRIVATE);
+				out = openFileOutput(filename, MODE_PRIVATE);
 				copyFile(in, out);
 				in.close();
 				in = null;
 				out.flush();
 				out.close();
 				out = null;
-			} catch(IOException e) {
+			} catch (IOException e) {
 				Log.e("tag", "Failed to copy asset file: " + filename, e);
-			}       
+			}
 		}
 	}
 
 	private void copyFile(InputStream in, OutputStream out) throws IOException {
 		byte[] buffer = new byte[1024];
 		int read;
-		while((read = in.read(buffer)) != -1){
+		while ((read = in.read(buffer)) != -1) {
 			out.write(buffer, 0, read);
 		}
 	}
-	
-	@Override
-	//override this with what you want to happen when the GNURoot Debian service completes a task
-	public void nextStep(Intent intent) {
-		super.nextStep(intent);
-		if (intent.getStringExtra("packageName").equals(getPackageName())) {
-			int resultCode = intent.getIntExtra("resultCode",0);
-			int requestCode = intent.getIntExtra("requestCode",0);
-
-			if (resultCode == MISSING_PREREQ) {
-				if (intent.getStringExtra("missingPreq").equals("octave_packages"))
-					this.runOnUiThread(new Runnable() {
-						public void run() {
-							Toast.makeText(getApplicationContext(), "Octave packages have not been installed, please click install/update from GNURoot Octave.", Toast.LENGTH_LONG).show();
-						}
-					});
-				if (intent.getStringExtra("missingPreq").equals("octave_custom"))
-					this.runOnUiThread(new Runnable() {
-						public void run() {
-							Toast.makeText(getApplicationContext(), "Octave custom files have not been installed, please click install/update from GNURoot Octave.", Toast.LENGTH_LONG).show();
-						}
-					});
-			}
-			
-			if ((installingPackages == true) && (requestCode == CHECK_STATUS) && (resultCode != STATUS_FILE_NOT_FOUND)) {
-				//install custom tar file
-				installingPackages = false;
-				copyAssets("com.gnuroot.octave");
-				File fileHandle = new File(getFilesDir() + "/octave_custom.tar.gz");
-				ArrayList<String> prerequisitesArrayList = new ArrayList<String>();
-		    	prerequisitesArrayList.add("gnuroot_rootfs");
-		    	prerequisitesArrayList.add("octave_packages");
-				installTar(FileProvider.getUriForFile(this, "com.gnuroot.octave.fileprovider", fileHandle), "octave_custom", prerequisitesArrayList);
-			} else if (((requestCode == CHECK_STATUS) && (resultCode != STATUS_FILE_NOT_FOUND) && (installingPackages == false)) || (requestCode == RUN_SCRIPT))  {
-				Thread thread = new Thread() {
-					@Override
-					public void run() {
-						// Block this thread for 1 second. There is a race case if the progressDialog is dismissed too quickly
-						try {
-							Thread.sleep(1000);
-						} catch (InterruptedException e) {
-						}
-						// After sleep finished blocking, create a Runnable to run on the UI Thread.
-						runOnUiThread(new Runnable() {
-							@Override
-							public void run() {
-								progressDialog.dismiss();
-							}
-						});
-
-					}
-
-				};
-				thread.start();
-			}
-		}
-
-	}
-
-	public void launchTerm() {
-		ArrayList<String> prerequisitesArrayList = new ArrayList<String>();
-		prerequisitesArrayList.add("gnuroot_rootfs");
-		prerequisitesArrayList.add("octave_packages");
-		prerequisitesArrayList.add("octave_custom");
-        runCommand("/usr/bin/octave", prerequisitesArrayList);
-	}
-
-    public void launchXTerm() {
-        ArrayList<String> prerequisitesArrayList = new ArrayList<String>();
-        prerequisitesArrayList.add("gnuroot_rootfs");
-        prerequisitesArrayList.add("gnuroot_x_support");
-        prerequisitesArrayList.add("octave_packages");
-        prerequisitesArrayList.add("octave_custom");
-        //runXCommand("/usr/bin/octave --force-gui", prerequisitesArrayList);
-        runXCommand("/usr/bin/octave", prerequisitesArrayList);
-    }
-
 }

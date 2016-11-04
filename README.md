@@ -1,5 +1,7 @@
 # GNURootOctave
 
-This is the repository corresponding to the GNURoot Octave Android app.
+This can be built using any version of Android Studio that supports experimental gradle build 0.7.3
+and the Android NDK.
 
-This can be built using the Android Studio 1.4 Beta 3 (probably newer versions too), using the experimental gradle plugin.
+GNURoot Octave relies on [GNURootDebian](https://github.com/corbinlc/GNURootDebian) to run. See its
+README for instructions to build a launcher of your own!

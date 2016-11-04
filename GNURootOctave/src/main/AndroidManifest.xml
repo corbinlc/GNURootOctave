@@ -32,12 +32,22 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <intent-filter android:label="Open Octave in New Term">
-                <action android:name="com.gnuroot.debian.NEW_WINDOW" />
+            <intent-filter>
+                <action android:name="com.gnuroot.octave.LAUNCH_CHOICE" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-            <intent-filter android:label="Open Octave in New XTerm">
-                <action android:name="com.gnuroot.debian.NEW_XWINDOW" />
+        </activity>
+
+        <activity android:name=".OctaveTermSelect" >
+            <intent-filter android:label="Octave in a terminal" >
+                <action android:name="com.gnuroot.octave.LAUNCH_SELECTION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".OctaveXTermSelect" >
+            <intent-filter android:label="Octave in an X terminal" >
+                <action android:name="com.gnuroot.octave.LAUNCH_SELECTION" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
