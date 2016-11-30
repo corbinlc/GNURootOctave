@@ -61,7 +61,7 @@ public class OctaveMain extends Activity {
 		try { packageInfo = getPackageManager().getPackageInfo("com.gnuroot.debian", 0); }
 		catch (NameNotFoundException e) { showUpdateError(); }
 
-		if(packageInfo == null || packageInfo.versionCode < 34)
+		if(packageInfo == null || packageInfo.versionCode < 40)
 			showUpdateError();
 
 		/** To get the reactive app selection interface to appear, send an intent
@@ -70,22 +70,15 @@ public class OctaveMain extends Activity {
 		 */
 		else {
 			if(getIntent().getAction() == Intent.ACTION_MAIN) {
+                copyAssets("com.gnuroot.octave");
 				Intent getLaunch = new Intent("com.gnuroot.octave.LAUNCH_SELECTION");
 				getLaunch.addCategory(Intent.CATEGORY_DEFAULT);
 				startActivity(getLaunch);
 				finish();
 			}
-
 			else if(getIntent().getAction() == "com.gnuroot.octave.LAUNCH_CHOICE") {
 				launchType = getIntent().getStringExtra("launchType");
-				if (!prefs.getBoolean("firstTime", false)) {
-					copyAssets("com.gnuroot.octave");
-					intent = getInstallIntent();
-					editor.putBoolean("firstTime", true);
-					editor.commit();
-				} else
-					intent = getLaunchIntent();
-
+				intent = getLaunchIntent();
 				intent.putExtra("launchType", launchType);
 				startActivity(intent);
 				finish();
@@ -136,37 +129,33 @@ public class OctaveMain extends Activity {
 	 * GNURoot Debian expects the following extras from install intents:
 	 * 	1. launchType: This can be either launchTerm or launchXTerm. The command that is to be run after installation
 	 * 		dictates this selection.
-	 *	2. statusFile: This should be a name unique to the extension. It will have either _passed or _failed appended
-	 *		to it and put in the /support directory of the rootfs. It is used to check status of untarring the shared
-	 *		file you send to it.
-	 *	3. command: This is the command that will be executed in proot after installation. Often, this will be a
+	 *	2. command: This is the command that will be executed in proot after installation. Often, this will be a
 	 *		script stored in your custom tar file to install additional packages if needed or to execute the extension.
-	 *	4. customTar: This is the custom tar file you've created for your extension.
-	 * @return
-	 */
-	private Intent getInstallIntent() {
-		Intent installIntent = new Intent("com.gnuroot.debian.LAUNCH");
-		installIntent.setComponent(new ComponentName("com.gnuroot.debian", "com.gnuroot.debian.GNURootMain"));
-		installIntent.addCategory(Intent.CATEGORY_DEFAULT);
-		installIntent.putExtra("statusFile", "octave_custom");
-		installIntent.putExtra("command", "/support/octave_install_packages.sh");
-		installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-		installIntent.setData(getTarUri());
-		return installIntent;
-	}
-
-	/**
-	 * GNURoot Debian expects the following extras from launch intents:
-	 * 	1. launchType: Either launchTerm or launchXTerm depending on where you want your command to be run.
-	 * 	2. command: The command to run. Usually what launches your extension.
+	 *	3. customTar: This is the custom tar file you've created for your extension.
 	 * @return
 	 */
 	private Intent getLaunchIntent() {
-		Intent launchIntent = new Intent("com.gnuroot.debian.LAUNCH");
-		launchIntent.setComponent(new ComponentName("com.gnuroot.debian", "com.gnuroot.debian.GNURootMain"));
-		launchIntent.addCategory(Intent.CATEGORY_DEFAULT);
-		launchIntent.putExtra("command", "/usr/bin/octave");
-		return launchIntent;
+		String command;
+		Intent installIntent = new Intent("com.gnuroot.debian.LAUNCH");
+		installIntent.setComponent(new ComponentName("com.gnuroot.debian", "com.gnuroot.debian.GNURootMain"));
+		installIntent.addCategory(Intent.CATEGORY_DEFAULT);
+		command =
+			"#!/bin/bash\n" +
+			"if [ ! -f /support/.octave_packages_passed ]; then\n" +
+            "  /support/installPackages octave_packages libgl1-mesa-swx11 octave less fonts-liberation gnuplot-nox octave-control octave-financial octave-io octave-missing-functions octave-odepkg octave-optim octave-signal octave-specfun octave-statistics octave-symbolic octave-image\n" +
+			"fi\n" +
+			"if [ -f /support/.octave_packages_passed ]; then\n" +
+			"  if [ ! -f /support/.octave_custom_passed ]; then\n" +
+            "    /support/untargz octave_custom /support/octave_custom.tar.gz\n" +
+			"  fi\n" +
+			"  if [ -f /support/.octave_custom_passed ]; then\n" +
+			"    /usr/bin/octave\n" +
+			"  fi\n" +
+            "fi\n";
+		installIntent.putExtra("command", command);
+		installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+		installIntent.setData(getTarUri());
+		return installIntent;
 	}
 
 	/**
