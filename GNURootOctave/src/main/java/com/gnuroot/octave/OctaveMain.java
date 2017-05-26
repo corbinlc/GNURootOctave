@@ -48,20 +48,21 @@ import android.util.Log;
 
 public class OctaveMain extends Activity {
 
+	// GNURoot won't launch unless its version matches at least this.
+	String GNURootVersion = "76";
+
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 
 		final Intent intent;
 		String launchType = "launchTerm";
-		SharedPreferences prefs = getSharedPreferences("MAIN", MODE_PRIVATE);
-		SharedPreferences.Editor editor = prefs.edit();
 		PackageInfo packageInfo = null;
 
 		try { packageInfo = getPackageManager().getPackageInfo("com.gnuroot.debian", 0); }
 		catch (NameNotFoundException e) { showUpdateError(); }
 
-		if(packageInfo == null || packageInfo.versionCode < 40)
+		if(packageInfo == null || packageInfo.versionCode < Integer.parseInt(GNURootVersion))
 			showUpdateError();
 
 		/** To get the reactive app selection interface to appear, send an intent
@@ -142,17 +143,22 @@ public class OctaveMain extends Activity {
 		command =
 			"#!/bin/bash\n" +
 			"if [ ! -f /support/.octave_packages_passed ]; then\n" +
-            "  /support/installPackages octave_packages libgl1-mesa-swx11 octave less fonts-liberation gnuplot-nox octave-control octave-financial octave-io octave-missing-functions octave-odepkg octave-optim octave-signal octave-specfun octave-statistics octave-symbolic octave-image\n" +
+            "  sudo /support/installPackages octave_packages libgl1-mesa-swx11 octave less fonts-liberation gnuplot-nox octave-control octave-financial octave-io octave-missing-functions octave-odepkg octave-optim octave-signal octave-specfun octave-statistics octave-symbolic octave-image\n" +
 			"fi\n" +
 			"if [ -f /support/.octave_packages_passed ]; then\n" +
-			"  if [ ! -f /support/.octave_custom_passed ]; then\n" +
-            "    /support/untargz octave_custom /support/octave_custom.tar.gz\n" +
+			"  if [ ! -f /support/.octave_custom_passed ] || [ ! -f /support/.octave_update_passed ]; then\n" +
+            "    sudo /support/untargz octave_custom /support/octave_custom.tar.gz\n" +
+			"    sudo chmod -R 755 /usr/share/octave\n" +
+			"    if [ $? == 0 ]; then\n" +
+			"      touch /support/.octave_update_passed\n" +
+			"    fi\n" +
 			"  fi\n" +
 			"  if [ -f /support/.octave_custom_passed ]; then\n" +
 			"    /usr/bin/octave\n" +
 			"  fi\n" +
             "fi\n";
 		installIntent.putExtra("command", command);
+		installIntent.putExtra("GNURootVersion", GNURootVersion);
 		installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 		installIntent.setData(getTarUri());
 		return installIntent;
