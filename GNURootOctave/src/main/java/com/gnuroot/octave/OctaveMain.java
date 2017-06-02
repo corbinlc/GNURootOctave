@@ -159,6 +159,7 @@ public class OctaveMain extends Activity {
             "fi\n";
 		installIntent.putExtra("command", command);
 		installIntent.putExtra("GNURootVersion", GNURootVersion);
+		installIntent.putExtra("packageName", "com.gnuroot.octave");
 		installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 		installIntent.setData(getTarUri());
 		return installIntent;
